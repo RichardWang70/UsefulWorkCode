@@ -181,15 +181,16 @@ Public Function CopyAllSheetsToNewWorkbook() As Workbook
         PlaceButton_2 ws
     End If
     Next ws
-
+    hostWb.SaveAs Filename:=dirPath & baseName & ".xlsm", FileFormat:=xlOpenXMLWorkbookMacroEnabled
+    
     '5) Save the new file in the same folder with a time-stamp suffix
-    Dim ext As String
+    'Dim ext As String
     'ext = IIf(hostWb.HasVBProject, ".xlsm", ".xlsx")
     'newFile = dirPath & baseName & "_FullCopy_" & timeTag & ext
     'Application.DisplayAlerts = False
     'newWb.SaveAs Filename:=newFile, FileFormat:=hostWb.FileFormat
     'Application.DisplayAlerts = True
-
+    
     '6) Return the workbook so caller can use it
     'Set CopyAllSheetsToNewWorkbook = newWb
 End Function
@@ -211,11 +212,13 @@ Private Function SafeName(txt As String) As String
 End Function
 
 Sub MakeFullCopy()
-    Dim newWb As Workbook
-    Set newWb = CopyAllSheetsToNewWorkbook()   '? one-line call
-    MsgBox "Copy created here:" & vbCrLf & newWb.FullName
+    'Dim newWb As Workbook
+    'Set newWb = CopyAllSheetsToNewWorkbook()   '? one-line call
+    'MsgBox "Copy created here:" & vbCrLf & newWb.FullName
+    CopyAllSheetsToNewWorkbook()
 End Sub
 
 '--------------------------------------------------------
 '  Quick Copy + Buttons   (one self-contained procedure)
+
 
