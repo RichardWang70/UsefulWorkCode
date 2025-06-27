@@ -1,0 +1,221 @@
+'------------------------------------------------------------------
+'  Function : CopyAllSheetsToNewWorkbook
+'  Purpose  : Clone every sheet of the host workbook into a new
+'             workbook saved in the same directory.
+'  Returns  : The newly created Workbook object.
+'------------------------------------------------------------------
+Option Explicit
+
+Private Const BTN_NAME   As String = "Supervisor Start Engine"
+Private Const BTN_NAME_2   As String = "Supervisor Stop Engine"
+
+Private Const BTN_W      As Long = 200
+Private Const BTN_H      As Long = 36
+Private Const PASSWD     As String = "20k"       'set if source sheets are protected
+
+
+
+
+Private Sub InjectMacroForSheet(newWb As Workbook, ws As Worksheet)
+    'late-bound VBProject ? no Extensibility reference needed
+    Dim vbProj As Object: Set vbProj = newWb.VBProject
+    Dim modName As String: modName = "mod_" & SafeName(ws.Name)
+
+    'delete old module (if macro re-run)
+    On Error Resume Next
+    vbProj.VBComponents.Remove vbProj.VBComponents(modName)
+    On Error GoTo 0
+
+    'add fresh standard module   (1 = vbext_ct_StdModule)
+    Dim comp As Object
+    Set comp = vbProj.VBComponents.Add(1)
+    comp.Name = modName
+
+    'code text
+    Dim code As String
+    code = "Sub " & MacroName(ws) & "()" & vbCrLf & _
+       "    Sheets(""" & ws.Name & """).Unprotect Password:=""20k""" & vbCrLf & _
+       "    Dim Check As VbMsgBoxResult" & vbCrLf & _
+       "    Check = MsgBox(""Are you sure all info is correct? Task & Time Assignment cannot be edited after clicking Start."", _" & vbCrLf & _
+       "                   vbYesNo, ""Cell Lock Notification"")" & vbCrLf & _
+       "    If Check = vbYes Then" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""R29"").Value = Now" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""A13:C28"").Select" & vbCrLf & _
+       "        Selection.Locked = True" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""E9:E28"").Select" & vbCrLf & _
+       "        Selection.Locked = True" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Protect Password:=""20k"", DrawingObjects:=False" & vbCrLf & _
+       "    Else" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Protect Password:=""20k""" & vbCrLf & _
+       "    End If" & vbCrLf & _
+       "End Sub"
+
+
+    comp.CodeModule.AddFromString code
+End Sub
+
+Private Sub InjectMacroForSheet_2(newWb As Workbook, ws As Worksheet)
+    'late-bound VBProject ? no Extensibility reference needed
+    Dim vbProj As Object: Set vbProj = newWb.VBProject
+    Dim modName As String: modName = "mod_" & SafeName(ws.Name)
+
+    'code text
+    Dim code As String
+    code = "Sub " & MacroName_2(ws) & "()" & vbCrLf & _
+       "    Sheets(""" & ws.Name & """).Protect Password:=""20k"", DrawingObjects:=False" & vbCrLf & _
+       "    Dim Check As VbMsgBoxResult" & vbCrLf & _
+       "    Check = MsgBox(""Are you sure all info is correct? Task & Time Assignment cannot be edited after clicking Stop."", _" & vbCrLf & _
+       "                   vbYesNo, ""Cell Lock Notification"")" & vbCrLf & _
+       "    If Check = vbYes Then" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""R45"").Value = Now" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""A1:C6"").Select: Selection.Locked = True" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""A11:Q28"").Select: Selection.Locked = True" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""A31:Q34"").Select: Selection.Locked = True" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""E36:M37"").Select: Selection.Locked = True" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""F39:L41"").Select: Selection.Locked = True" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Range(""A52:R82"").Select: Selection.Locked = True" & vbCrLf & _
+       "        Sheets(""" & ws.Name & """).Protect Password:=""20k""" & vbCrLf & _
+       "    End If" & vbCrLf & _
+       "End Sub"
+
+
+
+    vbProj.VBComponents(modName).CodeModule.AddFromString code
+End Sub
+
+
+
+
+
+
+
+
+
+
+'------------------ BUTTON MAKER ----------------------------------
+Private Sub PlaceButton(ws As Worksheet)
+    'un-protect if needed
+    If ws.ProtectContents Then ws.Unprotect PASSWD
+
+    'remove prior copy
+    On Error Resume Next: ws.Shapes(BTN_NAME).Delete: On Error GoTo 0
+
+    Dim tgt As Range: Set tgt = ws.Range("A29")
+    With ws.Shapes.AddFormControl(xlButtonControl, tgt.Left + 50, tgt.Top + 5, BTN_W, BTN_H)
+        .Name = BTN_NAME
+        .TextFrame.Characters.Font.Color = vbGreen
+        .TextFrame.Characters.Font.Size = 18
+        .TextFrame.Characters.Text = BTN_NAME
+        .OnAction = "'" & ws.Parent.Name & "'!" & MacroName(ws)
+    End With
+
+    ws.Protect Password:=PASSWD, UserInterfaceOnly:=True
+End Sub
+
+Private Sub PlaceButton_2(ws As Worksheet)
+    'un-protect if needed
+    If ws.ProtectContents Then ws.Unprotect PASSWD
+
+    'remove prior copy
+    On Error Resume Next: ws.Shapes(BTN_NAME_2).Delete: On Error GoTo 0
+
+    Dim tgt As Range: Set tgt = ws.Range("A45")
+    With ws.Shapes.AddFormControl(xlButtonControl, tgt.Left + 50, tgt.Top + 5, BTN_W, BTN_H)
+        .Name = BTN_NAME_2
+        .TextFrame.Characters.Font.Color = vbRed
+        .TextFrame.Characters.Font.Size = 20
+        .TextFrame.Characters.Text = BTN_NAME_2
+        .OnAction = "'" & ws.Parent.Name & "'!" & MacroName_2(ws)
+    End With
+
+    ws.Protect Password:=PASSWD, UserInterfaceOnly:=True
+End Sub
+
+
+
+
+Public Function CopyAllSheetsToNewWorkbook() As Workbook
+    Dim hostWb   As Workbook  '<— the workbook that contains this code
+    Dim newWb    As Workbook  '<— the workbook we will create
+    Dim dirPath  As String
+    Dim baseName As String
+    Dim timeTag  As String
+    Dim newFile  As String
+
+    '1) Info about the host workbook
+    Set hostWb = ThisWorkbook                'use ActiveWorkbook if preferred
+    If hostWb.Path = "" Then
+        MsgBox "Please save this workbook first, then run again.", vbExclamation
+        Exit Function
+    End If
+    dirPath = hostWb.Path & Application.PathSeparator
+    baseName = Left$(hostWb.Name, InStrRev(hostWb.Name, ".") - 1)
+    timeTag = Format$(Now, "yyyy-mm-dd_HHMMSS")
+
+    '2) Create a blank workbook (one default sheet)
+    'Set newWb = Workbooks.Add(xlWBATWorksheet)
+
+    '4) Copy EVERY sheet (worksheets + chart sheets) from host ? new workbook
+    'hostWb.Sheets.Copy After:=newWb.Sheets(1) '0 means “append to empty book”
+    
+    'Application.DisplayAlerts = False              'skip the “You’re about to delete…” prompt
+    'newWb.Worksheets(1).Delete
+    'Application.DisplayAlerts = True
+    
+    
+    Dim ws As Worksheet
+    'For Each ws In newWb.Worksheets
+    'If ws.Name <> "DAPP" And ws.Name <> "HiddenSheet" Then
+    '    InjectMacroForSheet newWb, ws
+    '    PlaceButton ws
+    '    InjectMacroForSheet_2 newWb, ws
+    '    PlaceButton_2 ws
+    'End If
+    'Next ws
+    
+    For Each ws In hostWb.Worksheets
+    If ws.Name <> "DAPP" And ws.Name <> "HiddenSheet" Then
+        InjectMacroForSheet hostWb, ws
+        PlaceButton ws
+        InjectMacroForSheet_2 hostWb, ws
+        PlaceButton_2 ws
+    End If
+    Next ws
+
+    '5) Save the new file in the same folder with a time-stamp suffix
+    Dim ext As String
+    'ext = IIf(hostWb.HasVBProject, ".xlsm", ".xlsx")
+    'newFile = dirPath & baseName & "_FullCopy_" & timeTag & ext
+    'Application.DisplayAlerts = False
+    'newWb.SaveAs Filename:=newFile, FileFormat:=hostWb.FileFormat
+    'Application.DisplayAlerts = True
+
+    '6) Return the workbook so caller can use it
+    'Set CopyAllSheetsToNewWorkbook = newWb
+End Function
+
+
+Private Function MacroName(ws As Worksheet) As String
+    MacroName = "Start" & SafeName(ws.Name) & "_Click"
+End Function
+Private Function MacroName_2(ws As Worksheet) As String
+    MacroName_2 = "End" & SafeName(ws.Name) & "_Click"
+End Function
+
+Private Function SafeName(txt As String) As String
+    Dim i As Long, ch As String * 1
+    For i = 1 To Len(txt)
+        ch = Mid$(txt, i, 1)
+        If ch Like "[A-Za-z0-9_]" Then SafeName = SafeName & ch Else SafeName = SafeName & "_"
+    Next i
+End Function
+
+Sub MakeFullCopy()
+    Dim newWb As Workbook
+    Set newWb = CopyAllSheetsToNewWorkbook()   '? one-line call
+    MsgBox "Copy created here:" & vbCrLf & newWb.FullName
+End Sub
+
+'--------------------------------------------------------
+'  Quick Copy + Buttons   (one self-contained procedure)
+
