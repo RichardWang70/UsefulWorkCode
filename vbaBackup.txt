@@ -182,6 +182,64 @@ Public Function CopyAllSheetsToNewWorkbook() As Workbook
     End If
     Next ws
     hostWb.SaveAs Filename:=dirPath & baseName & ".xlsm", FileFormat:=xlOpenXMLWorkbookMacroEnabled
+    '5) Save the new file in the same folder with a time-stamp suffix
+    Dim ext As String
+    'ext = IIf(hostWb.HasVBProject, ".xlsm", ".xlsx")
+    'newFile = dirPath & baseName & "_FullCopy_" & timeTag & ext
+    'Application.DisplayAlerts = False
+    'newWb.SaveAs Filename:=newFile, FileFormat:=hostWb.FileFormat
+    'Application.DisplayAlerts = True
+
+    '6) Return the workbook so caller can use it
+    'Set CopyAllSheetsToNewWorkbook = newWb
+End Function
+
+Public Function NewCopyAllSheetsToNewWorkbook(srcWb As Workbook) As Workbook
+
+    Dim newWb    As Workbook  '<— the workbook we will create
+    Dim dirPath  As String
+    Dim baseName As String
+    Dim timeTag  As String
+    Dim newFile  As String
+
+    If srcWb.Path = "" Then
+        MsgBox "Please save " & srcWb.Name & " first, then run again.", vbExclamation
+        Exit Function
+    End If
+    dirPath = srcWb.Path & Application.PathSeparator
+    baseName = Left$(srcWb.Name, InStrRev(srcWb.Name, ".") - 1)
+    timeTag = Format$(Now, "yyyy-mm-dd_HHMMSS")
+
+    '2) Create a blank workbook (one default sheet)
+    'Set newWb = Workbooks.Add(xlWBATWorksheet)
+
+    '4) Copy EVERY sheet (worksheets + chart sheets) from host ? new workbook
+    'hostWb.Sheets.Copy After:=newWb.Sheets(1) '0 means “append to empty book”
+    
+    'Application.DisplayAlerts = False              'skip the “You’re about to delete…” prompt
+    'newWb.Worksheets(1).Delete
+    'Application.DisplayAlerts = True
+    
+    
+    Dim ws As Worksheet
+    'For Each ws In newWb.Worksheets
+    'If ws.Name <> "DAPP" And ws.Name <> "HiddenSheet" Then
+    '    InjectMacroForSheet newWb, ws
+    '    PlaceButton ws
+    '    InjectMacroForSheet_2 newWb, ws
+    '    PlaceButton_2 ws
+    'End If
+    'Next ws
+    
+    For Each ws In srcWb.Worksheets
+    If ws.Name <> "DAPP" And ws.Name <> "HiddenSheet" Then
+        InjectMacroForSheet srcWb, ws
+        PlaceButton ws
+        InjectMacroForSheet_2 srcWb, ws
+        PlaceButton_2 ws
+    End If
+    Next ws
+    srcWb.SaveAs Filename:=dirPath & baseName & ".xlsm", FileFormat:=xlOpenXMLWorkbookMacroEnabled
     
     '5) Save the new file in the same folder with a time-stamp suffix
     'Dim ext As String
@@ -190,7 +248,7 @@ Public Function CopyAllSheetsToNewWorkbook() As Workbook
     'Application.DisplayAlerts = False
     'newWb.SaveAs Filename:=newFile, FileFormat:=hostWb.FileFormat
     'Application.DisplayAlerts = True
-    
+
     '6) Return the workbook so caller can use it
     'Set CopyAllSheetsToNewWorkbook = newWb
 End Function
@@ -220,4 +278,46 @@ End Sub
 '--------------------------------------------------------
 '  Quick Copy + Buttons   (one self-contained procedure)
 
+
+Sub RunMacroOnAllFiles()
+
+    Dim hostWb     As Workbook               ' workbook that contains this code
+    Set hostWb = ThisWorkbook
+
+    '? Use Dim, not Const — value is resolved at run-time
+    Dim targetPath As String
+    targetPath = hostWb.Path & Application.PathSeparator
+    'Const FILE_MASK   As String = "*.xls*"               'xls, xlsx, xlsm, xlsb
+    Const FILE_MASK   As String = "*.xlsx"
+    
+    Dim fname As String
+    Dim wb     As Workbook
+    Dim startTime As Double: startTime = Timer
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.DisplayAlerts = False
+
+    fname = Dir$(targetPath & FILE_MASK, vbNormal)
+    Do While Len(fname) > 0
+        Debug.Print "Processing: "; fname
+        Set wb = Workbooks.Open(targetPath & fname, ReadOnly:=False)
+
+        '—---------------- your routine goes here -----------------'
+        'If your master code lives in THIS workbook, just call it:'
+        Call NewCopyAllSheetsToNewWorkbook(wb) 'or whatever entry point
+        'If that procedure lives **inside the target workbook** itself:'
+        'Application.Run "'" & wb.Name & "'!CopyAllSheetsToNewWorkbook"'
+        '———————————————————————————————————————————————'
+
+        wb.Close SaveChanges:=True               'or False if you don’t need to save
+        fname = Dir$                             'next file
+    Loop
+
+    Application.DisplayAlerts = True
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+
+    MsgBox "Finished " & Format(Timer - startTime, "0.0") & " seconds.", vbInformation
+End Sub
 
