@@ -212,10 +212,9 @@ Private Function SafeName(txt As String) As String
 End Function
 
 Sub MakeFullCopy()
-    'Dim newWb As Workbook
-    'Set newWb = CopyAllSheetsToNewWorkbook()   '? one-line call
-    'MsgBox "Copy created here:" & vbCrLf & newWb.FullName
-    CopyAllSheetsToNewWorkbook()
+    Dim newWb As Workbook
+    Set newWb = CopyAllSheetsToNewWorkbook()   '? one-line call
+    MsgBox "Copy created here:" & vbCrLf & newWb.FullName
 End Sub
 
 '--------------------------------------------------------
