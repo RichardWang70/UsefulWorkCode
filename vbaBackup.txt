@@ -101,7 +101,7 @@ Private Sub PlaceButton(ws As Worksheet)
     On Error Resume Next: ws.Shapes(BTN_NAME).Delete: On Error GoTo 0
 
     Dim tgt As Range: Set tgt = ws.Range("A29")
-    With ws.Shapes.AddFormControl(xlButtonControl, tgt.Left + 50, tgt.Top + 5, BTN_W, BTN_H)
+    With ws.Shapes.AddFormControl(xlButtonControl, tgt.Left + 550, tgt.Top + 5, BTN_W, BTN_H)
         .Name = BTN_NAME
         .TextFrame.Characters.Font.Color = vbGreen
         .TextFrame.Characters.Font.Size = 18
@@ -120,7 +120,7 @@ Private Sub PlaceButton_2(ws As Worksheet)
     On Error Resume Next: ws.Shapes(BTN_NAME_2).Delete: On Error GoTo 0
 
     Dim tgt As Range: Set tgt = ws.Range("A45")
-    With ws.Shapes.AddFormControl(xlButtonControl, tgt.Left + 50, tgt.Top + 5, BTN_W, BTN_H)
+    With ws.Shapes.AddFormControl(xlButtonControl, tgt.Left + 550, tgt.Top + 5, BTN_W, BTN_H)
         .Name = BTN_NAME_2
         .TextFrame.Characters.Font.Color = vbRed
         .TextFrame.Characters.Font.Size = 20
@@ -164,6 +164,7 @@ Public Function CopyAllSheetsToNewWorkbook() As Workbook
     
     
     Dim ws As Worksheet
+    Dim shp As Shape
     'For Each ws In newWb.Worksheets
     'If ws.Name <> "DAPP" And ws.Name <> "HiddenSheet" Then
     '    InjectMacroForSheet newWb, ws
@@ -175,15 +176,31 @@ Public Function CopyAllSheetsToNewWorkbook() As Workbook
     
     For Each ws In hostWb.Worksheets
     If ws.Name <> "DAPP" And ws.Name <> "HiddenSheet" Then
+        If ws.ProtectContents Then
+            ws.Unprotect PASSWD
+            ws.Buttons.Delete
+            'ws.Shapes.SelectAll
+            'Selection.Delete
+            For Each shp In ws.Shapes
+                'If shp.Type = msoFormControl Or shp.Type = msoOLEControlObject Or
+                If shp.AutoShapeType = msoShapeRoundedRectangle Then
+                    On Error Resume Next
+                    shp.Delete
+                    On Error GoTo 0
+                End If
+            Next shp
+            ws.Protect Password:=PASSWD, UserInterfaceOnly:=True
+        End If
+        
         InjectMacroForSheet hostWb, ws
         PlaceButton ws
         InjectMacroForSheet_2 hostWb, ws
         PlaceButton_2 ws
     End If
     Next ws
-    hostWb.SaveAs Filename:=dirPath & baseName & ".xlsm", FileFormat:=xlOpenXMLWorkbookMacroEnabled
+    hostWb.SaveAs fileName:=dirPath & baseName & ".xlsm", FileFormat:=xlOpenXMLWorkbookMacroEnabled
     '5) Save the new file in the same folder with a time-stamp suffix
-    Dim ext As String
+    'Dim ext As String
     'ext = IIf(hostWb.HasVBProject, ".xlsm", ".xlsx")
     'newFile = dirPath & baseName & "_FullCopy_" & timeTag & ext
     'Application.DisplayAlerts = False
@@ -192,7 +209,12 @@ Public Function CopyAllSheetsToNewWorkbook() As Workbook
 
     '6) Return the workbook so caller can use it
     'Set CopyAllSheetsToNewWorkbook = newWb
+    Set CopyAllSheetsToNewWorkbook = hostWb
 End Function
+
+
+
+
 
 Public Function NewCopyAllSheetsToNewWorkbook(srcWb As Workbook) As Workbook
 
@@ -222,6 +244,7 @@ Public Function NewCopyAllSheetsToNewWorkbook(srcWb As Workbook) As Workbook
     
     
     Dim ws As Worksheet
+    Dim shp As Shape
     'For Each ws In newWb.Worksheets
     'If ws.Name <> "DAPP" And ws.Name <> "HiddenSheet" Then
     '    InjectMacroForSheet newWb, ws
@@ -231,16 +254,36 @@ Public Function NewCopyAllSheetsToNewWorkbook(srcWb As Workbook) As Workbook
     'End If
     'Next ws
     
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
     For Each ws In srcWb.Worksheets
     If ws.Name <> "DAPP" And ws.Name <> "HiddenSheet" Then
+        If ws.ProtectContents Then
+            ws.Unprotect PASSWD
+            ws.Buttons.Delete
+            'ws.Shapes.SelectAll
+            'Selection.Delete
+            For Each shp In ws.Shapes
+                'If shp.Type = msoFormControl Or shp.Type = msoOLEControlObject Or
+                If shp.AutoShapeType = msoShapeRoundedRectangle Then
+                    On Error Resume Next
+                    shp.Delete
+                    On Error GoTo 0
+                End If
+            Next shp
+            ws.Protect Password:=PASSWD, UserInterfaceOnly:=True
+        End If
+        
         InjectMacroForSheet srcWb, ws
         PlaceButton ws
         InjectMacroForSheet_2 srcWb, ws
         PlaceButton_2 ws
     End If
     Next ws
-    srcWb.SaveAs Filename:=dirPath & baseName & ".xlsm", FileFormat:=xlOpenXMLWorkbookMacroEnabled
-    
+    srcWb.SaveAs fileName:=dirPath & baseName & ".xlsm", FileFormat:=xlOpenXMLWorkbookMacroEnabled
+    Application.ScreenUpdating = True
+    Application.DisplayAlerts = True
+
     '5) Save the new file in the same folder with a time-stamp suffix
     'Dim ext As String
     'ext = IIf(hostWb.HasVBProject, ".xlsm", ".xlsx")
@@ -253,6 +296,12 @@ Public Function NewCopyAllSheetsToNewWorkbook(srcWb As Workbook) As Workbook
     'Set CopyAllSheetsToNewWorkbook = newWb
 End Function
 
+
+'--- helper: grab any visible text inside the shape (ignores errors) -----------
+Private Function GetShapeText(shp As Shape) As String
+    On Error Resume Next
+    GetShapeText = shp.TextFrame2.TextRange.Text
+End Function
 
 Private Function MacroName(ws As Worksheet) As String
     MacroName = "Start" & SafeName(ws.Name) & "_Click"
@@ -268,6 +317,44 @@ Private Function SafeName(txt As String) As String
         If ch Like "[A-Za-z0-9_]" Then SafeName = SafeName & ch Else SafeName = SafeName & "_"
     Next i
 End Function
+
+
+'----------------------------------------------------------------------
+'  Macro : CreateNewWorkbookInSameFolder
+'  Purpose: Save a fresh, empty workbook next to this workbook
+'----------------------------------------------------------------------
+Sub CreateNewWorkbookInSameFolder()
+    
+    '1) Make sure this workbook is saved, otherwise Path is empty
+    If ThisWorkbook.Path = "" Then
+        MsgBox "Save this workbook first so I know which folder to use.", _
+               vbExclamation
+        Exit Sub
+    End If
+    
+    '2) Build a unique file name
+    Dim destFolder As String
+    destFolder = ThisWorkbook.Path               'same directory
+    
+    Dim baseName As String
+    baseName = "NewWorkbook_"
+    
+    Dim destFile As String
+    destFile = destFolder & "\" & baseName & ".xlsx"
+    
+    '3) Add a new workbook and save it
+    Dim wbNew As Workbook
+    Set wbNew = Workbooks.Add                   'one blank sheet
+    
+    wbNew.SaveAs fileName:=destFile, _
+                 FileFormat:=xlOpenXMLWorkbook  ' .xlsx
+    
+    MsgBox "New workbook created:" & vbCrLf & destFile, vbInformation
+End Sub
+
+
+
+
 
 Sub MakeFullCopy()
     Dim newWb As Workbook
